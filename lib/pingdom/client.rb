@@ -6,14 +6,11 @@ module Pingdom
     attr_accessor :limit
     
     def initialize(options = {})
-      puts "Starting initialize"
-      
       @options = options.with_indifferent_access # .reverse_merge(:http_driver => :excon)
       
       raise ArgumentError, "an application key must be provided (as :key)" unless @options.key?(:key)
       
       @connection = Faraday.new(:url => "https://api.pingdom.com/api/2.0/")
-      puts "user: #{@options[:username]}, password #{@options[:password]}"
       @connection.basic_auth @options[:username], @options[:password]
  # do |builder|
  #        builder.url_prefix = "https://api.pingdom.com/api/2.0"

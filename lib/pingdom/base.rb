@@ -22,7 +22,7 @@ module Pingdom
     end
     
     def method_missing(name, *args, &block)
-      @attributes[name] or super
+      @attributes[name.to_s] or super
     end
     
     def respond_to?(name)

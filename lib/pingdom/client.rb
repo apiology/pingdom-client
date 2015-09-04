@@ -6,23 +6,32 @@ module Pingdom
     attr_accessor :limit
     
     def initialize(options = {})
-      @options = options.with_indifferent_access.reverse_merge(:http_driver => :excon)
+      puts "Starting initialize"
+      
+      @options = options.with_indifferent_access # .reverse_merge(:http_driver => :excon)
       
       raise ArgumentError, "an application key must be provided (as :key)" unless @options.key?(:key)
       
-      @connection = Faraday::Connection.new(:url => "https://api/pingdom.com/api/2.0/") do |builder|
-        builder.url_prefix = "https://api.pingdom.com/api/2.0"
+      @connection = Faraday.new(:url => "https://api.pingdom.com/api/2.0/")
+      puts "user: #{@options[:username]}, password #{@options[:password]}"
+      @connection.basic_auth @options[:username], @options[:password]
+ # do |builder|
+ #        builder.url_prefix = "https://api.pingdom.com/api/2.0"
+ #        puts "Registering logger as #{@options[:logger]}"
+ #        # builder.response :logger, @options[:logger]
         
-        builder.adapter :logger, @options[:logger]
+ #        # builder.adapter @options[:http_driver]
         
-        builder.adapter @options[:http_driver]
+ #        # builder.use Gzip # TODO: write GZip response handler, add Accept-Encoding: gzip header
+      #        # builder.response :yajl
+      @connection.response :json, :content_type => /\bjson$/
+      @connection.use Tinder::FaradayResponse::WithIndifferentAccess
         
-        # builder.use Gzip # TODO: write GZip response handler, add Accept-Encoding: gzip header
-        builder.response :yajl
-        builder.use Tinder::FaradayResponse::WithIndifferentAccess
-        
-        builder.basic_auth @options[:username], @options[:password]
-      end
+ #        builder.basic_auth @options[:username], @options[:password]
+
+ #        puts "Just set proxy"
+ #      end
+ #      @connection.proxy 'http://localhost:8888'
     end
     
     # probes => [1,2,3] #=> probes => "1,2,3"
@@ -36,7 +45,11 @@ module Pingdom
     end
     
     def get(uri, params = {}, &block)
-      response = @connection.get(@connection.build_url(uri, prepare_params(params)), "App-Key" => @options[:key], &block)
+      response = @connection.get(@connection.build_url(uri, prepare_params(params))) do |req|
+        req.headers["App-Key"] = @options[:key]
+        block.call(req) if block
+      end
+      fail unless response.success?
       update_limits!(response.headers['req-limit-short'], response.headers['req-limit-long'])
       response
     end
